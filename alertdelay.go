@@ -60,13 +60,16 @@ func main() {
 
 	interval := time.Second*time.Duration(300) //Defaults to 5 minutes
 
-	if os.Args[1] != "" {
-		i, err := strconv.Atoi(os.Args[1])
-		if err != nil {
-			log.Fatal(err)
+	if len(os.Args) > 1 {
+		if os.Args[1] != "" {
+			i, err := strconv.Atoi(os.Args[1])
+			if err != nil {
+				log.Fatal(err)
+			}
+			interval = time.Second*time.Duration(i)
 		}
-		interval = time.Second*time.Duration(i)
 	}
+
 
 	log.Printf("Initiating execution, interval is set to %d seconds",int(interval.Seconds()))
 
