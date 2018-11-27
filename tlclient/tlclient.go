@@ -5,15 +5,17 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 )
 
 type TlClient struct {
 	bClient BaseClient
+	apiKey string
 }
 
 var ResrobotClient *TlClient
 
-const APIKEY = "732d8c4e-a795-4dcb-b291-6f3712f0f7a8"
+//const APIKEY = "732d8c4e-a795-4dcb-b291-6f3712f0f7a8"
 const SL = "275"
 const TRAINS = "16"
 
@@ -47,12 +49,19 @@ func init() {
 		log.Fatal(err)
 	}
 
+	resrobotApiKey := os.Getenv("RESROBOTCLIENT_API_KEY")
+
+	if resrobotApiKey == "" {
+		log.Fatal("RESROBOTCLIENT_API_KEY must be set")
+	}
+
 	ResrobotClient = &TlClient{
 		BaseClient{
 			BaseURL:    tburl,
 			UserAgent:  USER_AGENT,
 			HttpClient: &http.Client{},
 		},
+		resrobotApiKey,
 	}
 }
 
@@ -60,7 +69,7 @@ func (c *TlClient) GetTrains(origin, destination string) (*DepartureArray, error
 
 	//url := "https://api.resrobot.se/v2/departureBoard?key=732d8c4e-a795-4dcb-b291-6f3712f0f7a8&id=740000559&maxJourneys=100&format=json&operator=275&products=16&direction=740000721"
 	urlValues := url.Values{}
-	urlValues.Set("key", APIKEY)
+	urlValues.Set("key", c.apiKey)
 	urlValues.Add("maxJourneys", "100")
 	urlValues.Add("format", "json")
 	urlValues.Add("operator", SL)

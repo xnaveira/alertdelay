@@ -2,14 +2,17 @@ package slclient
 
 import (
 	"encoding/json"
+	"fmt"
 	. "github.com/xnaveira/alertdelay/baseclient"
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 )
 
 type slClient struct {
 	bClient BaseClient
+	channel string
 }
 
 var SlackClient *slClient
@@ -20,17 +23,25 @@ func init()  {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	slackChannel := os.Getenv("SLACK_CHANNEL")
+
+	if slackChannel == "" {
+		log.Fatal("SLACK_CHANNEL must be set")
+	}
+
 	SlackClient = &slClient{
 		BaseClient{
 			BaseURL:    slurl,
 			UserAgent:  USER_AGENT,
 			HttpClient: &http.Client{},
 		},
+		slackChannel,
 	}
 
 }
 
-func (c *slClient) PostToSlack(message string) error {
+func (c *slClient) Notify(message string) error {
 
 	payload := map[string]string{
 		"text": message,
@@ -43,7 +54,7 @@ func (c *slClient) PostToSlack(message string) error {
 	//https://hooks.slack.com/services/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
 	req, err := c.bClient.NewRequest(
 		"POST",
-		"/services/T0SJTEHD3/B0SK4FWM8/2Lr9ljyaAxOcOeHeRWNqafVc",
+		fmt.Sprintf("/services%s",c.channel),
 		"",
 		payloadJson)
 	if err != nil {

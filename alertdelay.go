@@ -5,6 +5,8 @@ import (
 	. "github.com/xnaveira/alertdelay/slclient"
 	. "github.com/xnaveira/alertdelay/tlclient"
 	"log"
+	"os"
+	"strconv"
 	"time"
 )
 
@@ -34,6 +36,9 @@ import (
 //	message string
 //}
 
+type notifier interface {
+	Notify(string) error
+}
 
 const SODERTALJE_CENTRUM = "740000721"
 const KNIVSTA = "740000559"
@@ -42,18 +47,28 @@ const STOCKHOLM_CITY = "740001617"
 const UPPSALA = "740000005"
 
 var stations = map[string]string{
-	SODERTALJE_CENTRUM: "SODERTALJE_CENTRUM",
-	KNIVSTA:            "KNIVSTA",
-	STOCKHOLM_ODENPLAN: "STOCKHOLM_ODENPLAN",
-	STOCKHOLM_CITY:     "STOCKHOLM_CITY",
-	UPPSALA:            "UPPSALA",
+	SODERTALJE_CENTRUM: "Sodertälje Centrum",
+	KNIVSTA:            "Knivsta",
+	STOCKHOLM_ODENPLAN: "Stockholm Odenplan",
+	STOCKHOLM_CITY:     "Stockholm City",
+	UPPSALA:            "Uppsala",
 }
 
 var timeLayout = "15:04:05"
-var interval = 300*time.Second
-
 
 func main() {
+
+	interval := time.Second*time.Duration(300) //Defaults to 5 minutes
+
+	if os.Args[1] != "" {
+		i, err := strconv.Atoi(os.Args[1])
+		if err != nil {
+			log.Fatal(err)
+		}
+		interval = time.Second*time.Duration(i)
+	}
+
+	log.Printf("Initiating execution, interval is set to %d seconds",int(interval.Seconds()))
 
 
 	go doEvery(interval, makeRoute(KNIVSTA, SODERTALJE_CENTRUM, []int{3, 33}))
@@ -65,6 +80,7 @@ func main() {
 }
 
 func doEvery(d time.Duration, f func()) {
+	f()
 	for _ = range time.Tick(d) {
 		f()
 	}
@@ -114,14 +130,14 @@ func checkDepartures(departures []Departure, minutes []int) ([]trainStatus, erro
 
 func makeRoute(origin, destination string, minutes []int) func() {
 	return func() {
-		err := runAlert(origin, destination, minutes)
+		err := runAlert(origin, destination, minutes, SlackClient)
 		if err != nil {
 			log.Println(err)
 		}
 	}
 }
 
-func runAlert(origin, destination string, minutes []int) error {
+func runAlert(origin, destination string, minutes []int, n notifier) error {
 
 	trains, err := ResrobotClient.GetTrains(origin, destination)
 
@@ -138,7 +154,7 @@ func runAlert(origin, destination string, minutes []int) error {
 		log.Println(s.trainOrigin, s.trainDestination, s.newTime.Format(timeLayout), s.ontime)
 		if !s.ontime {
 			log.Println("Sending message to slack")
-			err = SlackClient.PostToSlack(fmt.Sprintf(
+			err = n.Notify(fmt.Sprintf(
 				"Train delayed: %s to %s. New time: %s",
 				s.trainOrigin,
 				s.trainDestination,
@@ -148,7 +164,7 @@ func runAlert(origin, destination string, minutes []int) error {
 			}
 		}
 	}
-	err = SlackClient.PostToSlack("Trains are checked")
+	err = n.Notify("Trains are checked")
 	if err != nil {
 		return err
 	}
