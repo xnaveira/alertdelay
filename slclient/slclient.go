@@ -17,7 +17,7 @@ type slClient struct {
 
 var SlackClient *slClient
 
-func init()  {
+func init() {
 
 	slurl, err := url.Parse("https://hooks.slack.com")
 	if err != nil {
@@ -51,25 +51,20 @@ func (c *slClient) Notify(message string) error {
 		return err
 	}
 
-	//https://hooks.slack.com/services/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
 	req, err := c.bClient.NewRequest(
 		"POST",
-		fmt.Sprintf("/services%s",c.channel),
+		fmt.Sprintf("/services%s", c.channel),
 		"",
 		payloadJson)
 	if err != nil {
 		return err
 	}
 
-	//bytes, err := httputil.DumpRequest(req, true)
-
-	//_ = bytes
-
 	var posted interface{}
 
-	_, err = c.bClient.Do(req,&posted)
+	_, err = c.bClient.Do(req, &posted)
 
-	log.Printf("message posted to slack: %s, status: %s",message,string(posted.([]byte)))
+	log.Printf("message posted to slack: %s, status: %s", message, string(posted.([]byte)))
 
 	if err != nil {
 		return err

@@ -10,15 +10,13 @@ import (
 
 type TlClient struct {
 	bClient BaseClient
-	apiKey string
+	apiKey  string
 }
 
 var ResrobotClient *TlClient
 
-//const APIKEY = "732d8c4e-a795-4dcb-b291-6f3712f0f7a8"
 const SL = "275"
 const TRAINS = "16"
-
 
 type Departure struct {
 	Product           interface{} `json:"Product"`
@@ -86,7 +84,7 @@ func (c *TlClient) GetTrains(origin, destination string) (*DepartureArray, error
 
 	_, err = c.bClient.Do(req, &trains)
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
 
 	return &trains, err

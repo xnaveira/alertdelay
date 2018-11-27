@@ -10,32 +10,6 @@ import (
 	"time"
 )
 
-
-
-//type BaseClient interface {
-//	newRequest(string, string, string, interface{}) (*http.Request, error)
-//	do(req *http.Request, v interface{}) (*http.Response, error)
-//}
-//
-//type SlackClient interface {
-//	BaseClient
-//	postToSlack(string) error
-//}
-//
-//type TlClient interface {
-//	BaseClient
-//	runAlert(string, string, []int) error
-//	getTrains(string, string) (*DepartureArray, error)
-//	makeRoute(string, string, []int) func()
-//}
-//
-
-
-//type DelayAlert struct {
-//	isAlert bool
-//	message string
-//}
-
 type notifier interface {
 	Notify(string) error
 }
@@ -58,7 +32,7 @@ var timeLayout = "15:04:05"
 
 func main() {
 
-	interval := time.Second*time.Duration(300) //Defaults to 5 minutes
+	interval := time.Second * time.Duration(300) //Defaults to 5 minutes
 
 	if len(os.Args) > 1 {
 		if os.Args[1] != "" {
@@ -66,13 +40,11 @@ func main() {
 			if err != nil {
 				log.Fatal(err)
 			}
-			interval = time.Second*time.Duration(i)
+			interval = time.Second * time.Duration(i)
 		}
 	}
 
-
-	log.Printf("Initiating execution, interval is set to %d seconds",int(interval.Seconds()))
-
+	log.Printf("Initiating execution, interval is set to %d seconds", int(interval.Seconds()))
 
 	go doEvery(interval, makeRoute(KNIVSTA, SODERTALJE_CENTRUM, []int{3, 33}))
 	go doEvery(interval, makeRoute(STOCKHOLM_ODENPLAN, UPPSALA, []int{15, 45}))
@@ -84,11 +56,10 @@ func main() {
 
 func doEvery(d time.Duration, f func()) {
 	f()
-	for _ = range time.Tick(d) {
+	for range time.Tick(d) {
 		f()
 	}
 }
-
 
 type trainStatus struct {
 	ontime           bool
@@ -124,9 +95,6 @@ func checkDepartures(departures []Departure, minutes []int) ([]trainStatus, erro
 		if !ontime {
 			trainStatuses[len(trainStatuses)-1].newTime = departureTime
 		}
-
-		//fmt.Println(departureTime.Minute())
-		//fmt.Println(departure.Time)
 	}
 	return trainStatuses, nil
 }
@@ -163,7 +131,7 @@ func runAlert(origin, destination string, minutes []int, n notifier) error {
 				s.trainDestination,
 				s.newTime.Format(timeLayout)))
 			if err != nil {
-				return fmt.Errorf("couldn't send message to slack: %s",err)
+				return fmt.Errorf("couldn't send message to slack: %s", err)
 			}
 		}
 	}

@@ -13,14 +13,12 @@ import (
 
 const USER_AGENT = "alertdelay/0.0.1"
 
-
 type BaseClient struct {
 	BaseURL   *url.URL
 	UserAgent string
 
 	HttpClient *http.Client
 }
-
 
 func (c *BaseClient) NewRequest(method, path, query string, body interface{}) (*http.Request, error) {
 	rel := &url.URL{Path: path}
@@ -46,7 +44,6 @@ func (c *BaseClient) NewRequest(method, path, query string, body interface{}) (*
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	//req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", c.UserAgent)
 
 	return req, nil
@@ -65,21 +62,11 @@ func (c *BaseClient) Do(req *http.Request, v interface{}) (*http.Response, error
 	}
 
 	if 200 <= resp.StatusCode && resp.StatusCode <= 400 {
-		//if  http.DetectContentType(body) == "application/json" {
-		if strings.Contains(resp.Header.Get("Content-Type"),"application/json") {
+		if strings.Contains(resp.Header.Get("Content-Type"), "application/json") {
 			//err = json.NewDecoder(bytes.NewReader(body)).Decode(v)
 			err = json.Unmarshal(body, v)
 		} else {
-			//response := map[string]string{
-			//	"msg": string(body),
-			//}
-			//responseJson, _ := json.Marshal(response)
-			//if err != nil {
-			//	err = err
-			//}
-			//err = json.Unmarshal(responseJson, v)
 			*v.(*interface{}) = body
-
 		}
 	} else {
 		err = fmt.Errorf("there was an error while requesting %s: %s", req.URL.String(), resp.Status)
