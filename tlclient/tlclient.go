@@ -15,12 +15,43 @@ type TlClient struct {
 
 var ResrobotClient *TlClient
 
+//Filtrerar svaret på produktsnivå
+//Anger trafikslag som trafikerar hållplatsen, summerar ihop om fler än ett. Möjliga värden:
+//2 - Snabbtåg, Expresståg, Arlanda Express
+//4 - Regionaltåg, InterCitytåg
+//8 - Expressbuss, Flygbussar
+//16 - Lokaltåg, Pågatåg, Öresundståg
+//32 - Tunnelbana
+//64 – Spårvagn
+//128 – Buss
+//256 – Färja, Utrikes Färja
+//(inte en fullständig lista)
+//Exempel: 6 = 2 (Snabbtåg, Expresståg, Arlanda Express) + 4 (Regionaltåg, InterCitytåg)
+
 const SL = "275"
-const TRAINS = "16"
+const TRAINS = "20" //sl + sj
+
+type Stop struct {
+	Name     string `json:"name"`
+	Id       string `json:"id"`
+	ExtId    string `json:"extId"`
+	RouteIdx int    `json:"routeIdx"`
+	//Lon        string `json:"lon"`
+	//Lat        string `json:"lat"`
+	DepTime    string `json:"depTime"`
+	DepDate    string `json:"depDate"`
+	RtDepTime  string `json:"rtDepTime,omitempty"`
+	RtDepDate  string `json:"rtDepdate,omitempty"`
+	RtDepTrack string `json:"rtDepTrack,omitempty"`
+}
+
+type StopArray struct {
+	Stops []Stop `json:"Stop"`
+}
 
 type Departure struct {
 	Product           interface{} `json:"Product"`
-	Stops             interface{} `json:"Stops"`
+	Stops             StopArray   `json:"Stops"`
 	Name              string      `json:"name"`
 	Type              string      `json:"type"`
 	Stop              string      `json:"stop"`
@@ -31,12 +62,8 @@ type Departure struct {
 	Direction         string      `json:"direction"`
 	TransportNumber   string      `json:"transportNumber"`
 	TransportCategory string      `json:"transportCategory"`
-
-	//RtTime     string   `json:"rtTime"`
-	//RtTrack    string   `json:"rtTrack"`
-	//RtDepTrack string   `json:"rtDepTrack"`
-	//RtDate string `json:"rt_date"`
 }
+
 type DepartureArray struct {
 	Departures []Departure `json:"Departure"`
 }
@@ -65,14 +92,13 @@ func init() {
 
 func (c *TlClient) GetTrains(origin, destination string) (*DepartureArray, error) {
 
-	//url := "https://api.resrobot.se/v2/departureBoard?key=732d8c4e-a795-4dcb-b291-6f3712f0f7a8&id=740000559&maxJourneys=100&format=json&operator=275&products=16&direction=740000721"
 	urlValues := url.Values{}
 	urlValues.Set("key", c.apiKey)
 	urlValues.Add("maxJourneys", "100")
 	urlValues.Add("format", "json")
-	urlValues.Add("operator", SL)
+	//urlValues.Add("operator", SL)
 	urlValues.Add("products", TRAINS)
-	urlValues.Add("direction", destination)
+	//urlValues.Add("direction", destination)
 	urlValues.Add("id", origin)
 
 	req, err := c.bClient.NewRequest("GET", "/v2/departureBoard", urlValues.Encode(), nil)
