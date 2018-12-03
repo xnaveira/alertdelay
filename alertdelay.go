@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"strconv"
 	"time"
 )
 
@@ -23,34 +22,45 @@ type section struct {
 }
 
 type conf struct {
+	Interval int               `yaml:"intervalinseconds,omitempty"`
 	Stations map[string]string `yaml:"stations"`
 	Sections []section         `yaml:"sections"`
 }
 
 var c conf
 
+type notification struct {
+	msg       string
+	timestamp time.Time
+}
+
+var notifications []notification
+
 func main() {
 
-	err := c.getConf("alertdelay.yaml")
-	if err != nil {
-		log.Fatal("problem parsin the config: %s", err)
-	}
-
-	interval := time.Second * time.Duration(300) //Defaults to 5 minutes
+	confFile := "alertdelay.yaml"
 
 	if len(os.Args) > 1 {
 		if os.Args[1] != "" {
-			i, err := strconv.Atoi(os.Args[1])
-			if err != nil {
-				log.Fatal(err)
-			}
-			interval = time.Second * time.Duration(i)
+			confFile = os.Args[1]
 		}
 	}
+
+	err := c.getConf(confFile)
+	if err != nil {
+		log.Fatal("problem parsin the config: ", err)
+	}
+
+	//default to 5 minutes
+	if c.Interval == 0 {
+		c.Interval = 300
+	}
+	interval := time.Second * time.Duration(c.Interval)
 
 	log.Printf("Initiating execution, interval is set to %d seconds", int(interval.Seconds()))
 
 	for _, s := range c.Sections {
+		log.Println("monitoring route ", s.Name, " ", s.Origin, " ", s.Destination)
 		go doEvery(interval, makeRoute(s.Origin, s.Destination))
 	}
 
@@ -131,6 +141,13 @@ func makeRoute(origin, destination string) func() {
 
 func runAlert(origin, destination string, n notifier) error {
 
+	//Clean up old notifications
+	for i, n := range notifications {
+		if time.Since(n.timestamp).Hours() > 24 {
+			notifications = append(notifications[:i], notifications[i+1:]...)
+		}
+	}
+
 	trains, err := ResrobotClient.GetTrains(origin, destination)
 
 	if err != nil {
@@ -146,19 +163,32 @@ func runAlert(origin, destination string, n notifier) error {
 		log.Println(s.trainOrigin, s.trainDestination, s.oldTime, s.newTime, s.ontime)
 		if !s.ontime {
 			log.Println("Sending message to slack")
-			err = n.Notify(fmt.Sprintf(
+			msg := fmt.Sprintf(
 				"Train delayed: %s to %s. Original time: %s, New time: %s",
 				s.trainOrigin,
 				s.trainDestination,
 				s.oldTime,
-				s.newTime))
+				s.newTime)
+
+			send := true
+			for _, n := range notifications {
+				//If message already sent
+				if (n.msg) == msg {
+					log.Println("skipping notify again: ", msg)
+					send = false
+				}
+			}
+			if send == true {
+				err = n.Notify(msg)
+				notifications = append(notifications, notification{msg, time.Now()})
+			}
 			if err != nil {
 				return fmt.Errorf("couldn't send message to slack: %s", err)
 			}
 		}
 	}
 
-	err = n.Notify("Trains are checked")
+	//err = n.Notify("Trains are checked")
 	if err != nil {
 		return err
 	}

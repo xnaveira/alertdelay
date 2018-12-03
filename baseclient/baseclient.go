@@ -61,7 +61,7 @@ func (c *BaseClient) Do(req *http.Request, v interface{}) (*http.Response, error
 		err = fmt.Errorf("could not read the response body: %s", err)
 	}
 
-	if 200 <= resp.StatusCode && resp.StatusCode <= 400 {
+	if 200 <= resp.StatusCode && resp.StatusCode < 400 {
 		if strings.Contains(resp.Header.Get("Content-Type"), "application/json") {
 			//err = json.NewDecoder(bytes.NewReader(body)).Decode(v)
 			err = json.Unmarshal(body, v)
@@ -69,7 +69,7 @@ func (c *BaseClient) Do(req *http.Request, v interface{}) (*http.Response, error
 			*v.(*interface{}) = body
 		}
 	} else {
-		err = fmt.Errorf("there was an error while requesting %s: %s", req.URL.String(), resp.Status)
+		err = fmt.Errorf("there was an error while requesting %s: %s %s", req.URL.String(), resp.Status, string(body))
 	}
 	return resp, err
 }
