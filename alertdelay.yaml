@@ -1,4 +1,4 @@
-intervalinseconds: 400
+intervalinseconds: 600
 stations:
    740000721: "Södertälje centrum station"
    740000559: "Knivsta station"
@@ -14,9 +14,16 @@ sections:
    - name: "Knivsta-Stockholm Centralen"
      origin: "740000559"
      destination: "740000001"
-   - name: "Stockholm Centralen-Uppsala"
+   - name: "Stockholm Centralen Uppsala"
      origin: "740000001"
      destination: "740000005"
-   - name: "Sotckholm Odenplan-Uppsala"
+   - name: "Sotckholm Odenplan Uppsala"
      origin: "740001618"
      destination: "740000005"
+ban:
+  days:
+    - Saturday
+    - Sunday
+  hours:
+    - from: 1:00
+      to: 5:00

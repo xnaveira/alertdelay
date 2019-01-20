@@ -8,6 +8,8 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -21,10 +23,21 @@ type section struct {
 	Destination string `yaml:"destination"`
 }
 
+type hintervals struct {
+	From string `yaml:"from"`
+	To   string `yaml:"to"`
+}
+
+type ban struct {
+	Bdays  []string     `yaml:"days"`
+	BHours []hintervals `yaml:"hours"`
+}
+
 type conf struct {
 	Interval int               `yaml:"intervalinseconds,omitempty"`
 	Stations map[string]string `yaml:"stations"`
 	Sections []section         `yaml:"sections"`
+	Ban      ban               `yaml:"ban"`
 }
 
 var c conf
@@ -36,9 +49,11 @@ type notification struct {
 
 var notifications []notification
 
-func main() {
+var confFile = "alertdelay.yaml"
 
-	confFile := "alertdelay.yaml"
+const apiLimit = 10000
+
+func main() {
 
 	if len(os.Args) > 1 {
 		if os.Args[1] != "" {
@@ -48,24 +63,84 @@ func main() {
 
 	err := c.getConf(confFile)
 	if err != nil {
-		log.Fatal("problem parsin the config: ", err)
+		log.Fatal("problem parsing the config: ", err)
 	}
 
-	//default to 5 minutes
-	if c.Interval == 0 {
-		c.Interval = 300
-	}
-	interval := time.Second * time.Duration(c.Interval)
+	intervalInMinutes, nApiCalls := c.Ban.getInterval(len(c.Sections))
+	interval := time.Second * time.Duration(intervalInMinutes*60)
 
-	log.Printf("Initiating execution, interval is set to %d seconds", int(interval.Seconds()))
+	log.Printf("Initiating execution")
+	log.Printf("interval is set to %d seconds", int(interval.Seconds()))
+	//log.Printf("calculated executions per month: %d", c.Ban.hoursPerMonth(int(interval.Seconds()))*len(c.Sections))
+	log.Printf("monitoring %d sections every %d minutes. Total api calls/month: %d", len(c.Sections), intervalInMinutes, nApiCalls)
 
 	for _, s := range c.Sections {
 		log.Println("monitoring route ", s.Name, " ", s.Origin, " ", s.Destination)
-		go doEvery(interval, makeRoute(s.Origin, s.Destination))
+		go doEvery(interval, c.Ban, makeRoute(s.Origin, s.Destination))
 	}
 
 	//Block forever
 	select {}
+
+}
+
+func (b *ban) isNowBanned() (bool, error) {
+	now := time.Now()
+	isBanned := false
+
+	for _, day := range b.Bdays {
+		if day == now.Format("Monday") {
+			isBanned = true
+			log.Printf("%s is banned", now.Format("Monday"))
+		}
+	}
+
+	for _, i := range b.BHours {
+
+		from, err := time.Parse("15:04", i.From)
+		if err != nil {
+			return true, err
+		}
+		to, err := time.Parse("15:04", i.To)
+		if err != nil {
+			return true, err
+		}
+
+		if now.After(from) && now.Before(to) {
+			isBanned = true
+			log.Printf("%s is in the banned interval.", now.Format("15:04"))
+		}
+	}
+
+	return isBanned, nil
+
+}
+
+func (b *ban) getInterval(nsections int) (int, int) {
+
+	nbDays := 0
+	nbHours := 0
+
+	if len(b.Bdays) > 0 {
+		nbDays = len(b.Bdays)
+	}
+
+	if len(b.BHours) > 0 {
+		for _, h := range b.BHours {
+			f := strings.Split(h.From, ":")[0]
+			t := strings.Split(h.To, ":")[0]
+			fint, _ := strconv.Atoi(f)
+			tint, _ := strconv.Atoi(t)
+			tominusfrom := tint - fint
+			nbHours = nbHours + tominusfrom
+		}
+	}
+
+	//nnonbanneddays * nnonbannedhours * minutesinanhour / ( apiLimit / nofmonitoredsections )
+	intevalInMinutes := (31 - nbDays) * (24 - nbHours) * 60 / (apiLimit / nsections)
+	nApiCalls := (((31 - nbDays) * (24 - nbHours) * 60) / intevalInMinutes) * nsections
+
+	return intevalInMinutes, nApiCalls
 
 }
 
@@ -83,10 +158,18 @@ func (c *conf) getConf(file string) error {
 	return nil
 }
 
-func doEvery(d time.Duration, f func()) {
-	f()
-	for range time.Tick(d) {
+func doEvery(d time.Duration, b ban, f func()) {
+	banned, err := b.isNowBanned()
+	if err != nil {
+		log.Fatal("error checking ban:", err)
+	}
+	if !banned {
 		f()
+	}
+	for range time.Tick(d) {
+		if !banned {
+			f()
+		}
 	}
 }
 
